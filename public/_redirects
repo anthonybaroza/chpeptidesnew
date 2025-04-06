@@ -1,0 +1,2 @@
+# Fallback for client-side routing in case the netlify.toml isn't applied
+/*    /.netlify/functions/entry    200

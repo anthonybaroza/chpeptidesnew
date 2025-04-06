@@ -1,0 +1,53 @@
+---
+export interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  canonicalURL?: string;
+}
+
+const { 
+  title, 
+  description, 
+  ogImage, // Don't set default here
+  canonicalURL = Astro.url.pathname
+} = Astro.props;
+
+// Use a fallback when ogImage is null, undefined, or empty string
+const validOgImage = ogImage || "/images/og-default.jpg";
+
+const siteUrl = import.meta.env.PUBLIC_SITE_URL || 'https://1.chpeptides.com';
+const fullCanonicalUrl = `${siteUrl}${canonicalURL}`;
+const fullOgImageUrl = validOgImage.startsWith('http') ? validOgImage : `${siteUrl}${validOgImage}`;
+---
+
+<!-- Basic Meta Tags -->
+<title>{title}</title>
+<meta name="description" content={description} />
+<link rel="canonical" href={fullCanonicalUrl} />
+
+<!-- Open Graph / Facebook -->
+<meta property="og:type" content="website" />
+<meta property="og:url" content={fullCanonicalUrl} />
+<meta property="og:title" content={title} />
+<meta property="og:description" content={description} />
+<meta property="og:image" content={fullOgImageUrl} />
+
+<!-- Twitter -->
+<meta property="twitter:card" content="summary_large_image" />
+<meta property="twitter:url" content={fullCanonicalUrl} />
+<meta property="twitter:title" content={title} />
+<meta property="twitter:description" content={description} />
+<meta property="twitter:image" content={fullOgImageUrl} />
+
+<!-- Structured Data for Products / Organization -->
+<script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Complete Health Peptides",
+    "url": "https://1.chpeptides.com",
+    "logo": "https://1.chpeptides.com/images/logo.png",
+    "description": "Provider of premium peptides and health products for optimal wellness and performance."
+  }
+</script>

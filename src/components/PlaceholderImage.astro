@@ -1,0 +1,64 @@
+---
+interface Props {
+  alt: string;
+  className?: string;
+  size?: 'small' | 'medium' | 'large';
+}
+
+const { alt, className = '', size = 'medium' } = Astro.props;
+
+// Determine dimensions based on size
+let dimensions = '400x400';
+switch(size) {
+  case 'small':
+    dimensions = '200x200';
+    break;
+  case 'large':
+    dimensions = '600x600';
+    break;
+  default:
+    dimensions = '400x400';
+}
+
+// Generate a background color based on the alt text
+// This ensures the same product always gets the same color
+function generateColorFromString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Get a pastel hue (avoiding too dark colors)
+  const h = (hash % 360);
+  const s = 60 + (hash % 20); // 60-80% saturation
+  const l = 75 + (hash % 15); // 75-90% lightness
+  
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+// Get a background color based on alt text
+const bgColor = generateColorFromString(alt);
+
+// Format the alt text to display on the placeholder
+const displayText = alt.length > 20 ? alt.substring(0, 20) + '...' : alt;
+---
+
+<div 
+  class={`placeholder-image flex items-center justify-center ${className}`}
+  style={`background-color: ${bgColor}; position: relative;`}
+>
+  <div class="text-center text-gray-700 p-4 max-w-full max-h-full">
+    {displayText}
+  </div>
+</div>
+
+<style>
+  .placeholder-image {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+</style>

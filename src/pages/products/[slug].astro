@@ -1,0 +1,486 @@
+---
+import Layout from '../../layouts/Layout.astro';
+import ProductCard from '../../components/ProductCard.astro';
+import { getAllProducts, getProductBySlug, getRelatedProducts } from '../../utils/productUtils';
+
+export async function getStaticPaths() {
+  // During build time, don't pre-render dynamic routes
+  // They will be rendered on-demand in the browser
+  return [];
+}
+
+const { slug } = Astro.params;
+const product = await getProductBySlug(slug);
+const relatedProducts = product ? await getRelatedProducts(product.id, product.category, 4) : [];
+
+if (!product && Astro.url.pathname !== '/products/undefined') {
+  return Astro.redirect('/404');
+}
+
+// Use the product's image URL directly when available - now properly formatted in productUtils.js
+const mainImageUrl = product?.image || null;
+
+// Prepare gallery images if available
+const galleryImages = product?.gallery || [];
+
+// Format the product description into paragraphs if needed
+const descriptionParagraphs = product?.description ? product.description.split('\n\n') : [];
+---
+
+<Layout 
+  title={product ? `${product.name} | Complete Health Peptides` : 'Product | Complete Health Peptides'}
+  description={product ? product.description.slice(0, 160) : 'View our research peptide products'}
+  ogImage={product ? mainImageUrl : ''}
+>
+  {!product && (
+    <div class="container mx-auto px-4 py-20 text-center">
+      <h1 class="text-4xl font-bold mb-4">Product Not Available</h1>
+      <p class="text-gray-600 mb-8">This product couldn't be loaded. Please connect to Supabase to view products.</p>
+      <a href="/products" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-md font-medium transition inline-block">
+        Return to Products
+      </a>
+    </div>
+  )}
+
+  {product && (
+    <div class="bg-gray-50 py-12">
+      <div class="container mx-auto px-4">
+        <div class="mb-6">
+          <a href="/products" class="text-primary-600 hover:text-primary-800 flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+            </svg>
+            Back to Products
+          </a>
+        </div>
+        
+        <div class="bg-white rounded-xl shadow-sm overflow-hidden">
+          <div class="grid grid-cols-1 lg:grid-cols-2">
+            <!-- Product Images -->
+            <div class="p-6 lg:p-10 bg-white">
+              <div class="relative">
+                <!-- Product badges -->
+                <div class="absolute top-4 left-4 z-10 flex flex-col gap-2">
+                  {product.isNew && (
+                    <span class="bg-secondary-500 text-white text-xs font-bold px-3 py-1 rounded-full">NEW</span>
+                  )}
+                  
+                  {product.isBestseller && (
+                    <span class="bg-primary-500 text-white text-xs font-bold px-3 py-1 rounded-full">BESTSELLER</span>
+                  )}
+                </div>
+                
+                {product.salePrice && product.salePrice < product.price && (
+                  <div class="absolute top-4 right-4 z-10">
+                    <span class="bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                      SAVE {Math.round(((product.price - product.salePrice) / product.price) * 100)}%
+                    </span>
+                  </div>
+                )}
+                
+                <!-- Main product image or fallback -->
+                <div id="main-product-container" class="bg-white rounded-xl overflow-hidden mb-4 border border-gray-100 flex items-center justify-center aspect-square">
+                  {mainImageUrl ? (
+                    <>
+                      <img 
+                        id="main-product-image"
+                        src={mainImageUrl}
+                        alt={product.name}
+                        class="max-h-full max-w-full object-contain rounded-lg p-2"
+                        onerror="this.style.display='none'; document.getElementById('product-image-fallback').style.display='flex';"
+                      />
+                      <div id="product-image-fallback" class="hidden w-full h-full flex items-center justify-center">
+                        <div class="text-center p-8 bg-gray-50 rounded-lg">
+                          <h3 class="font-semibold text-lg text-gray-800">{product.name}</h3>
+                          <p class="text-gray-600 mt-2">Research product</p>
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <div class="w-full h-full flex items-center justify-center">
+                      <div class="text-center p-8 bg-gray-50 rounded-lg">
+                        <h3 class="font-semibold text-lg text-gray-800">{product.name}</h3>
+                        <p class="text-gray-600 mt-2">Research product</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              {/* Gallery thumbnails */}
+              {galleryImages.length > 0 && (
+                <div class="grid grid-cols-5 gap-2 mt-4">
+                  <div 
+                    class="cursor-pointer border border-primary-500 rounded-lg overflow-hidden aspect-square flex items-center justify-center bg-white thumbnail-image"
+                    data-image={mainImageUrl}
+                  >
+                    <img 
+                      src={mainImageUrl} 
+                      alt={`${product.name} - Main View`}
+                      class="max-h-full max-w-full object-contain p-1"
+                      onerror="this.onerror=null; this.parentNode.style.display='none';"
+                    />
+                  </div>
+                  
+                  {galleryImages.slice(1).map((image, index) => (
+                    <div 
+                      class="cursor-pointer border border-gray-200 hover:border-primary-500 rounded-lg overflow-hidden aspect-square flex items-center justify-center bg-white thumbnail-image" 
+                      data-image={image}
+                    >
+                      <img 
+                        src={image} 
+                        alt={`${product.name} - View ${index + 1}`}
+                        class="max-h-full max-w-full object-contain p-1"
+                        onerror="this.onerror=null; this.parentNode.style.display='none';"
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            <!-- Product Info -->
+            <div class="p-6 lg:p-10 border-t lg:border-t-0 lg:border-l border-gray-100">
+              <div class="flex flex-col h-full">
+                {/* Category and product name */}
+                <div class="mb-6">
+                  <div class="text-sm text-primary-600 font-medium mb-2">{product.category}</div>
+                  <h1 class="text-3xl font-bold text-gray-900">{product.name}</h1>
+                </div>
+                
+                {/* Price */}
+                <div class="mb-6">
+                  {product.salePrice && product.salePrice < product.price ? (
+                    <div class="flex items-center">
+                      <span class="text-3xl font-bold text-primary-600">${product.salePrice.toFixed(2)}</span>
+                      <span class="text-xl text-gray-500 line-through ml-3">${product.price.toFixed(2)}</span>
+                    </div>
+                  ) : (
+                    <span class="text-3xl font-bold text-primary-600">${product.price.toFixed(2)}</span>
+                  )}
+                </div>
+                
+                {/* Description */}
+                <div class="prose prose-lg mb-8 text-gray-700">
+                  {descriptionParagraphs.length > 0 ? (
+                    descriptionParagraphs.map(paragraph => <p>{paragraph}</p>)
+                  ) : (
+                    <p>{product.description}</p>
+                  )}
+                </div>
+                
+                {/* Size selection */}
+                <div class="mb-8">
+                  <h3 class="font-semibold mb-3 text-gray-900">Size</h3>
+                  <div class="flex flex-wrap gap-3">
+                    {product.sizes?.map((size, index) => (
+                      <button 
+                        class={`border px-4 py-2 rounded-md transition ${index === 0 ? 'border-primary-500 bg-primary-50 text-primary-700' : 'border-gray-300 hover:border-primary-500 hover:bg-primary-50 text-gray-800'}`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                
+                {/* Quantity and Add to Cart */}
+                <div class="mb-8">
+                  <div class="flex flex-col sm:flex-row gap-4">
+                    <div class="flex border border-gray-300 rounded-md sm:w-32">
+                      <button id="decrease-quantity" class="w-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-l-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
+                        </svg>
+                      </button>
+                      <input 
+                        type="number" 
+                        id="quantity" 
+                        value="1" 
+                        min="1" 
+                        max="99"
+                        class="w-full text-center focus:outline-none focus:ring-0 border-0" 
+                      />
+                      <button id="increase-quantity" class="w-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-r-md">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <button 
+                      id="add-to-cart" 
+                      class="bg-primary-600 hover:bg-primary-700 text-white px-8 py-3 rounded-md font-medium transition flex-grow flex items-center justify-center"
+                      data-product-id={product.id}
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      Add to Cart
+                    </button>
+                  </div>
+                </div>
+                
+                {/* Product details accordion */}
+                <div class="border-t border-gray-200 pt-6 mt-auto">
+                  <div class="mb-4">
+                    <button id="benefits-toggle" class="flex justify-between items-center w-full text-left font-semibold py-2 text-gray-900">
+                      <span>Key Features</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="benefits-icon h-5 w-5 transform transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                    <div id="benefits-content" class="pl-2 text-gray-700 py-3 accordion-content">
+                      <ul class="list-disc pl-5 space-y-2">
+                        {product.benefits?.map(benefit => (
+                          <li>{benefit}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                  
+                  <div class="mb-4 border-t border-gray-100 pt-3">
+                    <button id="ingredients-toggle" class="flex justify-between items-center w-full text-left font-semibold py-2 text-gray-900">
+                      <span>Composition Information</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="ingredients-icon h-5 w-5 transform transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                    <div id="ingredients-content" class="pl-2 text-gray-700 py-3 accordion-content hidden">
+                      <p>{product.ingredients || "Research compound with specific composition details available in documentation."}</p>
+                    </div>
+                  </div>
+                  
+                  <div class="mb-4 border-t border-gray-100 pt-3">
+                    <button id="usage-toggle" class="flex justify-between items-center w-full text-left font-semibold py-2 text-gray-900">
+                      <span>Research Usage</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="usage-icon h-5 w-5 transform transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                    <div id="usage-content" class="pl-2 text-gray-700 py-3 accordion-content hidden">
+                      <div class="mb-3">
+                        <p>{product.usage || "Product intended for research and laboratory use."}</p>
+                      </div>
+                      <div class="bg-yellow-50 p-3 rounded-md">
+                        <p class="text-sm text-yellow-800">For research use only. Not for human consumption or therapeutic use.</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div class="mb-4 border-t border-gray-100 pt-3">
+                    <button id="shipping-toggle" class="flex justify-between items-center w-full text-left font-semibold py-2 text-gray-900">
+                      <span>Shipping & Storage</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" class="shipping-icon h-5 w-5 transform transition-transform" viewBox="0 0 20 20" fill="currentColor">
+                        <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                      </svg>
+                    </button>
+                    <div id="shipping-content" class="pl-2 text-gray-700 py-3 accordion-content hidden">
+                      <ul class="space-y-2">
+                        <li><strong>Shipping:</strong> Typically ships within 24 hours. Temperature-controlled packaging available upon request.</li>
+                        <li><strong>Storage:</strong> Storage recommendations provided with product documentation.</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Research notice */}
+        <div class="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div class="flex">
+            <div class="flex-shrink-0">
+              <svg class="h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <div class="ml-3">
+              <h3 class="text-sm font-medium text-blue-800">Research Use</h3>
+              <div class="mt-2 text-sm text-blue-700">
+                <p>Products intended for laboratory research purposes.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        {/* Related products */}
+        {relatedProducts.length > 0 && (
+          <div class="mt-16">
+            <h2 class="text-2xl font-bold mb-8">You might also like</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+              {relatedProducts.map(product => (
+                <ProductCard product={product} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  )}
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Quantity controls
+    const quantityInput = document.getElementById('quantity') as HTMLInputElement;
+    const decreaseBtn = document.getElementById('decrease-quantity');
+    const increaseBtn = document.getElementById('increase-quantity');
+    const addToCartBtn = document.getElementById('add-to-cart');
+    
+    // Handle quantity changes
+    if (decreaseBtn && increaseBtn && quantityInput) {
+      decreaseBtn.addEventListener('click', () => {
+        const currentValue = parseInt(quantityInput.value);
+        if (currentValue > 1) {
+          quantityInput.value = (currentValue - 1).toString();
+        }
+      });
+      
+      increaseBtn.addEventListener('click', () => {
+        const currentValue = parseInt(quantityInput.value);
+        if (currentValue < 99) {
+          quantityInput.value = (currentValue + 1).toString();
+        }
+      });
+      
+      // Ensure valid input
+      quantityInput.addEventListener('change', () => {
+        const value = parseInt(quantityInput.value);
+        if (isNaN(value) || value < 1) {
+          quantityInput.value = '1';
+        } else if (value > 99) {
+          quantityInput.value = '99';
+        }
+      });
+    }
+    
+    // Add to cart
+    if (addToCartBtn && quantityInput) {
+      addToCartBtn.addEventListener('click', () => {
+        const productId = addToCartBtn.getAttribute('data-product-id');
+        if (!productId) return;
+        
+        const quantity = parseInt(quantityInput.value);
+        
+        // Get current cart
+        const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+        
+        // Check if product is already in cart
+        const existingItemIndex = cart.findIndex(item => item.id === productId);
+        
+        if (existingItemIndex >= 0) {
+          // Update existing item
+          cart[existingItemIndex].quantity += quantity;
+        } else {
+          // Add new item
+          cart.push({
+            id: productId,
+            quantity: quantity,
+            added: new Date().toISOString()
+          });
+        }
+        
+        // Save cart
+        localStorage.setItem('cart', JSON.stringify(cart));
+        
+        // Update cart count
+        const cartCountElement = document.getElementById('cart-count');
+        if (cartCountElement) {
+          cartCountElement.textContent = cart.length.toString();
+        }
+        
+        // Trigger storage event for other tabs
+        window.dispatchEvent(new StorageEvent('storage', {
+          key: 'cart'
+        }));
+        
+        // Also dispatch a custom event for components that might be listening
+        window.dispatchEvent(new CustomEvent('cartUpdated'));
+        
+        // Show success message
+        const button = addToCartBtn as HTMLButtonElement;
+        const originalText = button.innerHTML;
+        
+        button.disabled = true;
+        button.innerHTML = `
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          Added to Cart!
+        `;
+        button.classList.remove('bg-primary-600', 'hover:bg-primary-700');
+        button.classList.add('bg-green-600');
+        
+        setTimeout(() => {
+          button.disabled = false;
+          button.innerHTML = originalText;
+          button.classList.remove('bg-green-600');
+          button.classList.add('bg-primary-600', 'hover:bg-primary-700');
+        }, 2000);
+      });
+    }
+    
+    // Thumbnail image switching
+    const thumbnails = document.querySelectorAll('.thumbnail-image');
+    const mainImage = document.getElementById('main-product-image') as HTMLImageElement;
+    
+    if (thumbnails.length > 0 && mainImage) {
+      thumbnails.forEach(thumb => {
+        thumb.addEventListener('click', () => {
+          // Update main image
+          const imageUrl = thumb.getAttribute('data-image');
+          if (imageUrl) {
+            mainImage.src = imageUrl;
+            // Reset any error state
+            mainImage.style.display = '';
+            const fallbackElement = document.getElementById('product-image-fallback');
+            if (fallbackElement) {
+              fallbackElement.style.display = 'none';
+            }
+          }
+          
+          // Update active thumbnail styling
+          thumbnails.forEach(t => {
+            t.classList.remove('border-primary-500');
+            t.classList.add('border-gray-200');
+          });
+          thumb.classList.remove('border-gray-200');
+          thumb.classList.add('border-primary-500');
+        });
+      });
+    }
+    
+    // Accordion functionality
+    const toggleAccordion = (toggleId, contentId, iconId) => {
+      const toggle = document.getElementById(toggleId);
+      const content = document.getElementById(contentId);
+      const icon = document.querySelector(`.${iconId}`);
+      
+      if (toggle && content && icon) {
+        toggle.addEventListener('click', () => {
+          content.classList.toggle('hidden');
+          icon.classList.toggle('rotate-180');
+        });
+      }
+    };
+    
+    // Initialize accordions
+    toggleAccordion('benefits-toggle', 'benefits-content', 'benefits-icon');
+    toggleAccordion('ingredients-toggle', 'ingredients-content', 'ingredients-icon');
+    toggleAccordion('usage-toggle', 'usage-content', 'usage-icon');
+    toggleAccordion('shipping-toggle', 'shipping-content', 'shipping-icon');
+  });
+</script>
+
+<style>
+  .accordion-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+  }
+  
+  .accordion-content.hidden {
+    display: none;
+  }
+</style>

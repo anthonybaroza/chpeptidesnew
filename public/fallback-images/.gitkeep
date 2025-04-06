@@ -1,0 +1,2 @@
+# Fallback images directory
+# This directory will store local fallback images when Supabase storage is unavailable

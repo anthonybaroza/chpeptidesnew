@@ -1,0 +1,50 @@
+---
+import Footer from '../components/Footer.astro';
+import Header from '../components/Header.astro';
+import SEO from '../components/SEO.astro';
+import SupabaseConnectionStatus from '../components/SupabaseConnectionStatus.astro';
+
+export interface Props {
+  title: string;
+  description: string;
+  ogImage?: string;
+  canonicalURL?: string;
+}
+
+const { 
+  title = "Complete Health Peptides | Research Peptides", 
+  description = "Research compounds for laboratory use and scientific investigation. Products intended for research purposes only.",
+  ogImage = "/images/og-default.jpg",
+  canonicalURL = Astro.url.pathname
+} = Astro.props;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    
+    <!-- Preload fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+    
+    <SEO 
+      title={title} 
+      description={description}
+      ogImage={ogImage}
+      canonicalURL={canonicalURL}
+    />
+  </head>
+  <body class="min-h-screen flex flex-col bg-gray-50">
+    <Header />
+    <main class="flex-grow">
+      <slot />
+    </main>
+    <Footer />
+    <SupabaseConnectionStatus />
+  </body>
+</html>

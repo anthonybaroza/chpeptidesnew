@@ -1,0 +1,100 @@
+---
+// A component to show Supabase connection status
+---
+
+<div id="supabase-connection-status" class="fixed bottom-4 right-4 hidden z-50">
+  <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg shadow-lg flex items-start max-w-md">
+    <div class="mr-2 flex-shrink-0">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+    </div>
+    <div>
+      <p class="font-bold">Supabase Connection Error</p>
+      <p id="connection-error-details" class="text-sm">Unable to connect to Supabase. Please check your credentials and network connection.</p>
+      <ul class="text-sm mt-2 list-disc list-inside">
+        <li>Verify that your Supabase URL and Anon Key in .env file are correct</li>
+        <li>Check if your network can access Supabase (no firewall blocking it)</li>
+        <li>Ensure your Supabase project is active and running</li>
+      </ul>
+      <div class="mt-2 flex space-x-2">
+        <button id="close-connection-alert" class="text-xs bg-red-200 hover:bg-red-300 text-red-800 px-2 py-1 rounded">Dismiss</button>
+        <button id="retry-connection" class="text-xs bg-blue-200 hover:bg-blue-300 text-blue-800 px-2 py-1 rounded">Retry Connection</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let connectionCheckAttempts = 0;
+  const MAX_ATTEMPTS = 3;
+  
+  async function checkSupabaseConnection() {
+    try {
+      // Dynamically import the supabase client
+      const { default: supabase } = await import('../utils/supabaseClient');
+      
+      // If no supabase client, show the error
+      if (!supabase) {
+        showConnectionError('Supabase client initialization failed');
+        return false;
+      }
+      
+      // Test the connection with a simple, lightweight call
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        showConnectionError(`Auth error: ${error.message}`);
+        return false;
+      }
+      
+      // If we get here, connection is successful
+      return true;
+    } catch (error) {
+      showConnectionError(`Error: ${error.message}`);
+      return false;
+    }
+  }
+  
+  function showConnectionError(message) {
+    const errorEl = document.getElementById('connection-error-details');
+    if (errorEl) {
+      errorEl.textContent = message;
+    }
+    document.getElementById('supabase-connection-status')?.classList.remove('hidden');
+  }
+  
+  async function attemptConnection() {
+    connectionCheckAttempts++;
+    
+    if (connectionCheckAttempts <= MAX_ATTEMPTS) {
+      console.log(`Attempting Supabase connection (try ${connectionCheckAttempts}/${MAX_ATTEMPTS})...`);
+      
+      const connected = await checkSupabaseConnection();
+      
+      if (connected) {
+        console.log('Successfully connected to Supabase!');
+        document.getElementById('supabase-connection-status')?.classList.add('hidden');
+      } else if (connectionCheckAttempts < MAX_ATTEMPTS) {
+        // If not connected and we have attempts left, try again after a delay
+        setTimeout(attemptConnection, 2000);
+      }
+    }
+  }
+  
+  document.addEventListener('DOMContentLoaded', () => {
+    // Initial connection check with a delay
+    setTimeout(attemptConnection, 1000);
+    
+    // Setup close button
+    document.getElementById('close-connection-alert')?.addEventListener('click', () => {
+      document.getElementById('supabase-connection-status')?.classList.add('hidden');
+    });
+    
+    // Setup retry button
+    document.getElementById('retry-connection')?.addEventListener('click', () => {
+      connectionCheckAttempts = 0; // Reset the counter
+      attemptConnection();
+    });
+  });
+</script>

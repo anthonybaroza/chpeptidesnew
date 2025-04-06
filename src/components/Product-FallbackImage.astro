@@ -1,0 +1,56 @@
+---
+export interface Props {
+  productName: string;
+  size?: 'small' | 'medium' | 'large';
+  className?: string;
+}
+
+const { productName, size = 'medium', className = '' } = Astro.props;
+
+// Set dimensions based on size
+let width, height;
+switch (size) {
+  case 'small':
+    width = 200;
+    height = 200;
+    break;
+  case 'large':
+    width = 600;
+    height = 400;
+    break;
+  default: // medium
+    width = 400;
+    height = 400;
+}
+
+// Generate a color based on product name
+function generateColor(name) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  const h = Math.abs(hash % 360);
+  // Lighter pastel color with higher lightness
+  const s = 70 + (hash % 20); // 70-90% saturation
+  const l = 80 + (hash % 15); // 80-95% lightness (keeps it light)
+  
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+const backgroundColor = generateColor(productName);
+const textColor = 'rgba(0,0,0,0.7)';
+const text = productName.length > 30 ? productName.substring(0, 30) + '...' : productName;
+---
+
+<div 
+  class={`product-fallback flex items-center justify-center rounded-lg overflow-hidden ${className}`}
+  style={`background-color: ${backgroundColor}; width: 100%; height: 100%; min-height: ${height}px;`}
+>
+  <div 
+    class="text-center font-medium p-4 rounded-lg bg-white/30 backdrop-blur-sm"
+    style={`color: ${textColor}; max-width: 90%;`}
+  >
+    {text}
+  </div>
+</div>

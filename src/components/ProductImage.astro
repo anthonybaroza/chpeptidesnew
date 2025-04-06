@@ -1,0 +1,115 @@
+---
+interface Props {
+  src: string;
+  alt: string;
+  className?: string;
+  fallbackText?: string;
+  width?: number;
+  height?: number;
+}
+
+const { 
+  src, 
+  alt, 
+  className = '', 
+  fallbackText = 'Product Image',
+  width = 400,
+  height = 400
+} = Astro.props;
+
+// Generate a background color based on the alt text
+function generateColorFromString(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  
+  // Get a pastel hue (avoiding too dark colors)
+  const h = (hash % 360);
+  const s = 60 + (hash % 20); // 60-80% saturation
+  const l = 75 + (hash % 15); // 75-90% lightness
+  
+  return `hsl(${h}, ${s}%, ${l}%)`;
+}
+
+// Helper to check if a URL is from Supabase storage
+function isSupabaseStorageUrl(url) {
+  if (!url) return false;
+  // URL might directly be from storage
+  if (url.includes('storage.googleapis.com') || url.includes('supabase.co/storage')) {
+    return true;
+  }
+  // Might be a relative path to storage
+  if (url.startsWith('product-images/')) {
+    return true;
+  }
+  return false;
+}
+
+// For a Supabase bucket path, construct the full URL
+function getSupabasePublicUrl(path, bucket = 'product-images') {
+  if (!path) return null;
+  
+  // If already a full URL, return it
+  if (path.startsWith('http')) {
+    return path;
+  }
+  
+  // Extract the file name from the path if needed
+  let fileName = path;
+  if (path.includes('/')) {
+    fileName = path.split('/').pop();
+  }
+  
+  // Get the Supabase URL from environment variables
+  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+  if (!supabaseUrl) {
+    console.error('Supabase URL not found in environment variables');
+    return null;
+  }
+  
+  // Construct the public URL
+  return `${supabaseUrl}/storage/v1/object/public/${bucket}/${fileName}`;
+}
+
+// Determine the image source
+let imageSource = src;
+if (isSupabaseStorageUrl(src)) {
+  imageSource = getSupabasePublicUrl(src);
+  console.log(`Using Supabase storage URL: ${imageSource}`);
+}
+
+// Use a placeholder image as fallback
+const bgColor = generateColorFromString(alt);
+const displayText = fallbackText || (alt.length > 20 ? alt.substring(0, 20) + '...' : alt);
+const placeholderUrl = `https://placehold.co/${width}x${height}/e2e8f0/1e293b?text=${encodeURIComponent(displayText.replace(/\s+/g, '+'))}`;
+
+// For debugging
+console.log('ProductImage rendered with src:', imageSource);
+---
+
+<div class={`product-image-container overflow-hidden ${className}`}>
+  {imageSource ? (
+    <img 
+      src={imageSource} 
+      alt={alt}
+      width={width}
+      height={height}
+      loading="lazy"
+      onerror={`this.onerror=null; this.src='${placeholderUrl}'; console.log('Image failed to load:', this.src);`}
+      class="w-full h-full object-contain transition-transform duration-300 group-hover:scale-105"
+    />
+  ) : (
+    <div 
+      class="w-full h-full flex items-center justify-center"
+      style={`background-color: ${bgColor};`}
+    >
+      <span class="text-gray-700 text-sm px-4 py-2 text-center">{displayText}</span>
+    </div>
+  )}
+</div>
+
+<script>
+  // Additional client-side functionality can be added here if needed
+  // For example, lazy loading, image zoom, etc.
+</script>

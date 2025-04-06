@@ -1,0 +1,354 @@
+---
+import Layout from '../layouts/Layout.astro';
+
+// We won't try to pre-load products during build time anymore
+---
+
+<Layout 
+  title="Your Cart | Complete Health Peptides"
+  description="Review the items in your shopping cart and proceed to checkout."
+>
+  <div class="container mx-auto px-4 py-12">
+    <h1 class="text-3xl font-bold mb-8">Your Cart</h1>
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <!-- Cart Items -->
+      <div class="lg:col-span-2">
+        <div id="cart-items" class="space-y-4">
+          <div class="text-center py-12 text-gray-500">Loading your cart...</div>
+        </div>
+        
+        <div id="empty-cart-message" class="hidden text-center py-12">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+          </svg>
+          <h2 class="text-xl font-semibold mb-2">Your cart is empty</h2>
+          <p class="text-gray-500 mb-6">Looks like you haven't added any products to your cart yet.</p>
+          <a href="/products" class="bg-primary-600 hover:bg-primary-700 text-white px-6 py-3 rounded-md font-medium inline-block transition">
+            Continue Shopping
+          </a>
+        </div>
+      </div>
+      
+      <!-- Order Summary -->
+      <div class="lg:col-span-1">
+        <div class="bg-gray-50 rounded-lg p-6">
+          <h2 class="text-xl font-bold mb-4">Order Summary</h2>
+          
+          <div class="space-y-3 mb-6">
+            <div class="flex justify-between">
+              <span>Subtotal</span>
+              <span id="subtotal">$0.00</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Shipping</span>
+              <span id="shipping">$0.00</span>
+            </div>
+            <div class="flex justify-between">
+              <span>Tax</span>
+              <span id="tax">$0.00</span>
+            </div>
+          </div>
+          
+          <div class="border-t border-gray-200 pt-4 mb-6">
+            <div class="flex justify-between font-bold">
+              <span>Total</span>
+              <span id="total">$0.00</span>
+            </div>
+          </div>
+          
+          <button 
+            id="checkout-button" 
+            class="w-full bg-primary-600 hover:bg-primary-700 text-white py-3 rounded-md font-medium transition"
+            disabled
+          >
+            Proceed to Checkout
+          </button>
+          
+          <div class="mt-6">
+            <div class="flex items-center mb-2">
+              <input type="text" placeholder="Discount code" class="flex-grow border border-gray-300 rounded-l-md px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary-500" />
+              <button class="bg-gray-800 hover:bg-gray-900 text-white px-4 py-2 rounded-r-md transition">
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</Layout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const cartItemsContainer = document.getElementById('cart-items');
+    const emptyCartMessage = document.getElementById('empty-cart-message');
+    const subtotalElement = document.getElementById('subtotal');
+    const shippingElement = document.getElementById('shipping');
+    const taxElement = document.getElementById('tax');
+    const totalElement = document.getElementById('total');
+    const checkoutButton = document.getElementById('checkout-button');
+    
+    // Get cart from localStorage
+    const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    
+    if (cart.length === 0) {
+      // Show empty cart message
+      if (cartItemsContainer) cartItemsContainer.innerHTML = '';
+      if (emptyCartMessage) emptyCartMessage.classList.remove('hidden');
+      return;
+    }
+
+    // Function to fetch product data
+    async function fetchProducts() {
+      try {
+        // Import supabaseClient dynamically
+        const { default: supabase } = await import('../utils/supabaseClient');
+        
+        if (!supabase) {
+          throw new Error('Supabase client not initialized');
+        }
+        
+        // Get all product IDs from cart
+        const productIds = cart.map(item => item.id);
+        
+        // Fetch products from Supabase
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .in('id', productIds)
+          .eq('status', 'active');
+          
+        if (error) {
+          throw error;
+        }
+        
+        return data;
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        return [];
+      }
+    }
+    
+    // Function to format currency
+    function formatCurrency(amount) {
+      return `$${amount.toFixed(2)}`;
+    }
+    
+    // Populate cart items
+    if (cartItemsContainer && emptyCartMessage) {
+      try {
+        const products = await fetchProducts();
+        
+        if (!products || products.length === 0) {
+          cartItemsContainer.innerHTML = `
+            <div class="text-center py-8">
+              <p class="text-red-500">Unable to load product data. Please connect to Supabase.</p>
+            </div>
+          `;
+          return;
+        }
+        
+        emptyCartMessage.classList.add('hidden');
+        cartItemsContainer.innerHTML = '';
+        
+        let subtotal = 0;
+        
+        cart.forEach(item => {
+          const product = products.find(p => p.id === item.id);
+          if (!product) return;
+          
+          // Get proper image URL
+          let imageUrl = product.image_url;
+          if (!imageUrl && product.slug) {
+            const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+            if (supabaseUrl) {
+              imageUrl = `${supabaseUrl}/storage/v1/object/public/product-images/${product.slug}.jpg`;
+            }
+          }
+          
+          // Fallback image URL
+          const fallbackImage = `https://placehold.co/500x500?text=${encodeURIComponent(product.name || 'Product')}`;
+          
+          const price = product.discounted_price || product.price;
+          const itemTotal = parseFloat(price) * item.quantity;
+          subtotal += itemTotal;
+          
+          const cartItemElement = document.createElement('div');
+          cartItemElement.className = 'flex flex-col sm:flex-row border border-gray-200 rounded-lg overflow-hidden';
+          cartItemElement.innerHTML = `
+            <div class="w-full sm:w-32 h-32 bg-gray-100 relative">
+              ${imageUrl ? `
+                <img 
+                  src="${imageUrl}" 
+                  alt="${product.name}" 
+                  class="w-full h-full object-cover" 
+                  onerror="this.onerror=null; this.src='${fallbackImage}'"
+                />
+              ` : `
+                <div class="w-full h-full flex items-center justify-center p-2">
+                  <div class="text-center text-gray-500 text-sm">${product.name || 'Product'}</div>
+                </div>
+              `}
+            </div>
+            <div class="flex-grow p-4 flex flex-col">
+              <div class="flex justify-between mb-2">
+                <a href="/products/${product.slug}" class="font-medium hover:text-primary-600">${product.name}</a>
+                <button class="remove-item text-gray-500 hover:text-red-500" data-id="${product.id}">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                  </svg>
+                </button>
+              </div>
+              <div class="text-sm text-gray-500 mb-2">${product.category || 'Research Peptides'}</div>
+              <div class="flex justify-between items-end mt-auto">
+                <div class="flex items-center">
+                  <button class="decrease-quantity px-2 py-1 border border-gray-300 rounded-l" data-id="${product.id}">-</button>
+                  <span class="px-4 py-1 border-t border-b border-gray-300 item-quantity" data-id="${product.id}">${item.quantity}</span>
+                  <button class="increase-quantity px-2 py-1 border border-gray-300 rounded-r" data-id="${product.id}">+</button>
+                </div>
+                <div>
+                  <span class="font-medium">${formatCurrency(itemTotal)}</span>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          cartItemsContainer.appendChild(cartItemElement);
+        });
+        
+        // Calculate order summary
+        const shipping = subtotal > 100 ? 0 : 10;
+        const tax = subtotal * 0.07; // 7% tax rate
+        const total = subtotal + shipping + tax;
+        
+        // Update order summary
+        if (subtotalElement) subtotalElement.textContent = formatCurrency(subtotal);
+        if (shippingElement) shippingElement.textContent = formatCurrency(shipping);
+        if (taxElement) taxElement.textContent = formatCurrency(tax);
+        if (totalElement) totalElement.textContent = formatCurrency(total);
+        
+        // Enable checkout button if cart has items
+        if (checkoutButton) {
+          checkoutButton.disabled = false;
+          checkoutButton.addEventListener('click', () => {
+            window.location.href = '/checkout';
+          });
+        }
+        
+        // Setup event handlers for quantity changes and remove buttons
+        setupQuantityButtons(products);
+        setupRemoveButtons(products);
+      } catch (error) {
+        console.error('Error setting up cart:', error);
+        cartItemsContainer.innerHTML = `
+          <div class="text-center py-8">
+            <p class="text-red-500">An error occurred while loading your cart. Please try again later.</p>
+          </div>
+        `;
+      }
+    }
+    
+    function setupQuantityButtons(products) {
+      const decreaseButtons = document.querySelectorAll('.decrease-quantity');
+      const increaseButtons = document.querySelectorAll('.increase-quantity');
+      
+      decreaseButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const productId = button.getAttribute('data-id');
+          updateQuantity(productId, -1, products);
+        });
+      });
+      
+      increaseButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const productId = button.getAttribute('data-id');
+          updateQuantity(productId, 1, products);
+        });
+      });
+    }
+    
+    function setupRemoveButtons(products) {
+      const removeButtons = document.querySelectorAll('.remove-item');
+      
+      removeButtons.forEach(button => {
+        button.addEventListener('click', () => {
+          const productId = button.getAttribute('data-id');
+          removeItem(productId);
+        });
+      });
+    }
+    
+    function updateQuantity(productId, change, products) {
+      if (!productId) return;
+      
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const itemIndex = cart.findIndex(item => item.id === productId);
+      
+      if (itemIndex === -1) return;
+      
+      // Update quantity
+      cart[itemIndex].quantity += change;
+      
+      // Ensure quantity is at least 1
+      if (cart[itemIndex].quantity < 1) {
+        cart[itemIndex].quantity = 1;
+      }
+      
+      // Update localStorage
+      localStorage.setItem('cart', JSON.stringify(cart));
+      
+      // Update UI
+      const quantityElements = document.querySelectorAll(`.item-quantity[data-id="${productId}"]`);
+      quantityElements.forEach(el => {
+        el.textContent = cart[itemIndex].quantity.toString();
+      });
+      
+      // Recalculate totals
+      recalculateTotals(products, cart);
+    }
+    
+    function removeItem(productId) {
+      if (!productId) return;
+      
+      const cart = JSON.parse(localStorage.getItem('cart') || '[]');
+      const updatedCart = cart.filter(item => item.id !== productId);
+      
+      // Update localStorage
+      localStorage.setItem('cart', JSON.stringify(updatedCart));
+      
+      // Update cart count
+      const cartCountElement = document.getElementById('cart-count');
+      if (cartCountElement) {
+        cartCountElement.textContent = updatedCart.length.toString();
+      }
+      
+      // Dispatch cart updated event
+      window.dispatchEvent(new CustomEvent('cartUpdated'));
+      
+      // Reload the cart content
+      location.reload();
+    }
+    
+    function recalculateTotals(products, cart) {
+      let subtotal = 0;
+      
+      cart.forEach(item => {
+        const product = products.find(p => p.id === item.id);
+        if (product) {
+          const price = product.discounted_price || product.price;
+          subtotal += parseFloat(price) * item.quantity;
+        }
+      });
+      
+      const shipping = subtotal > 100 ? 0 : 10;
+      const tax = subtotal * 0.07;
+      const total = subtotal + shipping + tax;
+      
+      if (subtotalElement) subtotalElement.textContent = formatCurrency(subtotal);
+      if (shippingElement) shippingElement.textContent = formatCurrency(shipping);
+      if (taxElement) taxElement.textContent = formatCurrency(tax);
+      if (totalElement) totalElement.textContent = formatCurrency(total);
+    }
+  });
+</script>

@@ -1,0 +1,21 @@
+{
+  "name": "complete-health-peptides",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev",
+    "start": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "bolt-build": "astro build && node scripts/copy-dist-to-root.js"
+  },
+  "dependencies": {
+    "@astrojs/netlify": "^4.1.1",
+    "@astrojs/sitemap": "^3.0.5",
+    "@astrojs/tailwind": "^5.1.0",
+    "@supabase/supabase-js": "^2.39.3",
+    "astro": "^4.5.0",
+    "tailwindcss": "^3.4.1"
+  }
+}

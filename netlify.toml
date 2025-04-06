@@ -1,0 +1,27 @@
+# Netlify configuration file
+
+[build]
+  command = "npm run build"
+  publish = "dist"
+  functions = ".netlify/functions-internal"  # Changed from netlify/functions to match Astro's output
+
+# Environment variable settings
+[build.environment]
+  NODE_VERSION = "18"
+
+# Asset caching and optimization
+[[headers]]
+  for = "/_astro/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Handle 404s properly by serving index.html for any route not found
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  force = true
+
+# Research Use Only disclaimer (will be handled by the application)
+[context.production]
+  environment = { PUBLIC_SITE_URL = "https://1.chpeptides.com" }

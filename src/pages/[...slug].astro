@@ -1,0 +1,7 @@
+---
+// This is a catch-all route that will handle all undefined routes
+export const prerender = false;
+
+// Redirect to home page for all undefined routes
+return Astro.redirect('/');
+---
